@@ -1,3 +1,6 @@
+from csv import DictWriter
+import os
+
 from bs4 import BeautifulSoup
 
 
@@ -24,11 +27,11 @@ class BaseParser(object):
     SECURITY_SECTION = 'security'
     SECTION_NAMES = (SECURITY_SECTION)
 
+
     CSV = 'csv'
     OUTPUT_TYPES = (CSV)
-    OUTPUT_TYPE_EXTENSIONS = {
-        CSV: '.csv',
-    }
+
+    OUTPUT_DIR = 'data'
 
     def __init__(self, section, output_type):
         self._validate_inputs(section, output_type)
@@ -49,24 +52,57 @@ class BaseParser(object):
                 error_message.format(name=output_type, opts=self.OUTPUT_TYPES)
             )
 
-    def _dump_to_csv(self, data):
-        pass
+    def _dump_to_csv(self, name, data, fieldnames):
+        print('Going to dump to CSV')
 
-    def dump(self, data):
-        """
-        Dump contents of data to specified output. Dynamically determine which
-        output method to call and call the method. Important to note that
-        future _dump_to methods should also include a corresponding entry in
-        the OUTPUT_TYPE_EXTENSIONS dictionary and should follow the same
-        naming convention.
-        :param data: (list) List of dictionaries to dump to file
-        """
-        dump_method_name = '_dump_to_{ext}'.format(
+        dirname = '{dirname}/{section}'.format(
+            dirname=self.output_dir,
+            section=self.section,
+        )
+
+        if not os.path.exists(self.output_dir):
+            print('Creating directory: {}'.format(self.output_dir))
+            os.makedirs(dirname)
+
+        filename = '{dirname}/{name}.{ext}'.format(
+            dirname=dirname,
+            name=name,
             ext=self.output_type
         )
 
-        getattr(self, dump_method_name)(data)
+        with open(filename, 'w') as csv_file:
+            writer = DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
 
+            for idx, val in data.items():
+                print('Writing row {}'.format(idx))
+                # FIXME: Hack here
+                row = {
+                    'Index': idx,
+                    'IP Address': val
+                }
+                writer.writerow(row)
+
+        print('Done! Output is in {}'.format(filename))
+
+    def dump(self, section_data):
+        """
+        Dump contents of section data to specified output. Dynamically
+        determine which output method to call and call the method.
+        Important to note that future _dump_to methods should also include a
+        corresponding entry in the OUTPUT_TYPE_EXTENSIONS dictionary and
+        should follow the same naming convention (_dump_to_{type}).
+        :param data: (list) List of dictionaries to dump to file
+        """
+        print('Starting dump of {} data'.format(self.section))
+
+        dump_method_name = '_dump_to_{ext}'.format(
+            ext=self.output_type
+        )
+        dump_method = getattr(self, dump_method_name)
+
+        for data in section_data:
+            dump_method(**data)
 
     def run(self):
         raise NotImplementedError('Subclasses must implement their own run()')
@@ -81,18 +117,26 @@ class SecurityParser(BaseParser):
         'IP Addresses': 6,
     }
 
-    def __init__(self, output_type=None):
+    def __init__(self, output_type=None, output_dir=None):
         xargs = {
             'section': self.SECURITY_SECTION,
             'output_type': output_type or self.CSV,
         }
 
         super(SecurityParser, self).__init__(**xargs)
-        self.filename = '{base}/{sub}/{section}'.format(
+
+        self.dirname = '{base}/{sub}'.format(
             base=self.BASE_DIR,
             sub=self.HTML_DIR,
+        )
+
+        self.filename = '{dir}/{section}'.format(
+            dir=self.dirname,
             section=self.SECURITY_FILE
         )
+
+        self.output_dir = output_dir or self.OUTPUT_DIR
+
 
     def _parse_ip_addresses(self):
         """
@@ -101,6 +145,7 @@ class SecurityParser(BaseParser):
         :@return ip_data: (dict) Map of IP addresses assosciated with user
         """
         address_map = {}
+        print('Starting parse of known IP addresses')
 
         with open(self.filename) as html_file:
             soup = BeautifulSoup(html_file, 'html.parser')
@@ -113,4 +158,15 @@ class SecurityParser(BaseParser):
         return address_map
 
     def run(self):
-        pass
+        print('Starting parse of security data')
+
+        ip_data = self._parse_ip_addresses()
+
+        ip_packet = {
+            'name': 'ip_addresses',
+            'data': ip_data,
+            'fieldnames': ['Index', 'IP Address']
+        }
+        data = [ip_packet]
+
+        self.dump(data)
