@@ -1,3 +1,6 @@
+from bs4 import BeautifulSoup
+
+
 class BaseParser(object):
     """
     Base parser which other section parsers inherit from. The base class
@@ -10,6 +13,7 @@ class BaseParser(object):
     Each parser must specify what section to parse and what format to output
     the data as.
     """
+
     # Facebook data directory names
     BASE_DIR = 'facebook_data'
     HTML_DIR = 'html'
@@ -17,7 +21,8 @@ class BaseParser(object):
     # Facebook data file names
     SECURITY_FILE = 'security.htm'
 
-    SECTION_NAMES = ('security')
+    SECURITY_SECTION = 'security'
+    SECTION_NAMES = (SECURITY_SECTION)
 
     CSV = 'csv'
     OUTPUT_TYPES = (CSV)
@@ -25,13 +30,11 @@ class BaseParser(object):
         CSV: '.csv',
     }
 
-
-    def __init__(self, section, output_type, filename='facebook_data'):
+    def __init__(self, section, output_type):
         self._validate_inputs(section, output_type)
 
         self.section = section
         self.output_type = output_type
-        self.filename = filename
 
     def _validate_inputs(self, section, output_type):
         error_message = '{name} is not a valid input. Enter one of: {opts}'
@@ -67,3 +70,47 @@ class BaseParser(object):
 
     def run(self):
         raise NotImplementedError('Subclasses must implement their own run()')
+
+
+class SecurityParser(BaseParser):
+    """
+    Parser for security data
+    """
+
+    FIELD_NAME_INDEX = {
+        'IP Addresses': 6,
+    }
+
+    def __init__(self, output_type=None):
+        xargs = {
+            'section': self.SECURITY_SECTION,
+            'output_type': output_type or self.CSV,
+        }
+
+        super(SecurityParser, self).__init__(**xargs)
+        self.filename = '{base}/{sub}/{section}'.format(
+            base=self.BASE_DIR,
+            sub=self.HTML_DIR,
+            section=self.SECURITY_FILE
+        )
+
+    def _parse_ip_addresses(self):
+        """
+        Parse the known IP addresses section for a log of what addresses the
+        user has logged in from
+        :@return ip_data: (dict) Map of IP addresses assosciated with user
+        """
+        address_map = {}
+
+        with open(self.filename) as html_file:
+            soup = BeautifulSoup(html_file, 'html.parser')
+            section_index = self.FIELD_NAME_INDEX['IP Addresses']
+            ip_address_html = soup.find_all('ul')[section_index]
+
+            for idx, address in enumerate(ip_address_html.find_all('li')):
+                address_map[str(idx)] = address.getText()
+
+        return address_map
+
+    def run(self):
+        pass
