@@ -42,6 +42,7 @@ class SecurityParser(BaseParser):
 
     FIELD_NAME_INDEX = {
         'IP Addresses': 6,
+        'Recognized Machines': 3,
     }
 
     SECURITY_FILE = 'security.htm'
@@ -82,6 +83,33 @@ class SecurityParser(BaseParser):
 
         return address_list
 
+    def _parse_recognized_machines(self):
+        """
+        Parse the recognized machines section for a log of what machines are
+        assosciated with the user profile
+        :@return machine_data: (dict) Map of machines assosciated with user
+        """
+        machine_list = []
+        print('Starting parse of recogined machines')
+
+        with open(self.filename) as html_file:
+            soup = BeautifulSoup(html_file, 'html.parser')
+            section_index = self.FIELD_NAME_INDEX['Recognized Machines']
+            recognized_machines_html = soup.find_all('ul')[section_index]
+
+            for record in recognized_machines_html.find_all('p'):
+                record_data = {}
+                # The content of the recongized machine section is one
+                # <p> for each machine with <br>'s in between. This method
+                # will create a generator of strings from the tag and create a
+                # map of fieldnames for each field in the record
+                for field in record.strings:
+                    fieldname, content = field.split(':', 1)
+                    record_data[fieldname] = content
+                    machine_list.append(record_data)
+
+        return machine_list
+
     def run(self):
         print('Starting parse of security data')
 
@@ -94,6 +122,17 @@ class SecurityParser(BaseParser):
             'fieldnames': ['Index', 'IP Address']
         }
 
-        data = ip_packet
+        machine_data = self._parse_recognized_machines()
+
+        machine_packet = {
+            'section': self.section,
+            'subsection': 'recognized_machines',
+            'data': machine_data,
+            'fieldnames': [
+                'IP Address', 'Updated', 'Browser', 'Created', 'Cookie'
+            ]
+        }
+
+        data = [ip_packet, machine_packet]
 
         return data

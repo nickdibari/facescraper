@@ -85,8 +85,6 @@ class CSVWriter(BaseWriter):
             writer.writeheader()
 
             for row in data:
-                print('Writing row {}'.format(data))
-
                 writer.writerow(row)
 
         print('Done! Output is in {}'.format(filename))
@@ -95,14 +93,15 @@ class CSVWriter(BaseWriter):
         """
         Build data to send to helper method to dump section_data to CSV
         """
-        section = section_data['section']
-        subsection = section_data['subsection']
-        data = section_data['data']
-        fieldnames = section_data['fieldnames']
+        for section in section_data:
+            section_name = section['section']
+            subsection = section['subsection']
+            data = section['data']
+            fieldnames = section['fieldnames']
 
-        print('Dumping {data} to {section}-{subsection}'.format(
-            data=data,
-            section=section,
-            subsection=subsection,
-        ))
-        self._dump_to_csv(section, subsection, data, fieldnames)
+            print('Dumping {section}-{subsection}'.format(
+                section=section_name,
+                subsection=subsection,
+            ))
+
+            self._dump_to_csv(section_name, subsection, data, fieldnames)
