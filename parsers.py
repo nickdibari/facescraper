@@ -44,6 +44,7 @@ class SecurityParser(BaseParser):
         'IP Addresses': 6,
         'Recognized Machines': 3,
         'Allowed Apps': 1,
+        'Advertisers': 3,
     }
 
     SECURITY_FILE = 'security.htm'
@@ -137,6 +138,30 @@ class SecurityParser(BaseParser):
 
         return app_list
 
+    def _parse_advertisers(self):
+        """
+        Parse the section documenting which advertisers have shared your
+        contact information
+        :@return app_data: (dict) Map of companies that have shared user data
+        """
+        advertiser_list = []
+        print('Starting parse of advertisers')
+
+        app_filename = '{}/{}/ads.htm'.format(self.BASE_DIR, self.HTML_DIR)
+        with open(app_filename) as html_file:
+            soup = BeautifulSoup(html_file, 'html.parser')
+            section_index = self.FIELD_NAME_INDEX['Advertisers']
+            app_html = soup.find_all('ul')[section_index]
+
+            for idx, name in enumerate(app_html.find_all('li')):
+                ad_map = {}
+                ad_map['Index'] = idx
+                ad_map['Name'] = name.getText().encode('ascii', 'ignore')
+
+                advertiser_list.append(ad_map)
+
+        return advertiser_list
+
     def run(self):
         print('Starting parse of security data')
 
@@ -169,6 +194,15 @@ class SecurityParser(BaseParser):
             'fieldnames': ['Index', 'App Name']
         }
 
-        data = [ip_packet, machine_packet, app_packet]
+        ad_data = self._parse_advertisers()
+
+        ad_packet = {
+            'section': self.section,
+            'subsection': 'advertisers',
+            'data': ad_data,
+            'fieldnames': ['Index', 'Name']
+        }
+
+        data = [ip_packet, machine_packet, app_packet, ad_packet]
 
         return data
