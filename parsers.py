@@ -83,7 +83,12 @@ class SecurityParser(BaseParser):
 
                 address_list.append(address_map)
 
-        return address_list
+        return {
+            'section': self.section,
+            'subsection': 'ip_addresses',
+            'data': address_list,
+            'fieldnames': ['Index', 'IP Address']
+        }
 
     def _parse_recognized_machines(self):
         """
@@ -110,7 +115,14 @@ class SecurityParser(BaseParser):
                     record_map[fieldname] = content
                     machine_list.append(record_map)
 
-        return machine_list
+        return {
+            'section': self.section,
+            'subsection': 'recognized_machines',
+            'data': machine_list,
+            'fieldnames': [
+                'IP Address', 'Updated', 'Browser', 'Created', 'Cookie'
+            ]
+        }
 
     def _parse_allowed_applications(self):
         """
@@ -136,7 +148,12 @@ class SecurityParser(BaseParser):
 
                 app_list.append(app_map)
 
-        return app_list
+        return {
+            'section': self.section,
+            'subsection': 'allowed_apps',
+            'data': app_list,
+            'fieldnames': ['Index', 'App Name']
+        }
 
     def _parse_advertisers(self):
         """
@@ -160,48 +177,21 @@ class SecurityParser(BaseParser):
 
                 advertiser_list.append(ad_map)
 
-        return advertiser_list
+        return {
+            'section': self.section,
+            'subsection': 'advertisers',
+            'data': advertiser_list,
+            'fieldnames': ['Index', 'Name']
+        }
+
 
     def run(self):
         print('Starting parse of security data')
 
-        ip_data = self._parse_ip_addresses()
-
-        ip_packet = {
-            'section': self.section,
-            'subsection': 'ip_addresses',
-            'data': ip_data,
-            'fieldnames': ['Index', 'IP Address']
-        }
-
-        machine_data = self._parse_recognized_machines()
-
-        machine_packet = {
-            'section': self.section,
-            'subsection': 'recognized_machines',
-            'data': machine_data,
-            'fieldnames': [
-                'IP Address', 'Updated', 'Browser', 'Created', 'Cookie'
-            ]
-        }
-
-        app_data = self._parse_allowed_applications()
-
-        app_packet = {
-            'section': self.section,
-            'subsection': 'allowed_apps',
-            'data': app_data,
-            'fieldnames': ['Index', 'App Name']
-        }
-
-        ad_data = self._parse_advertisers()
-
-        ad_packet = {
-            'section': self.section,
-            'subsection': 'advertisers',
-            'data': ad_data,
-            'fieldnames': ['Index', 'Name']
-        }
+        ip_packet = self._parse_ip_addresses()
+        machine_packet = self._parse_recognized_machines()
+        app_packet = self._parse_allowed_applications()
+        ad_packet = self._parse_advertisers()
 
         data = [ip_packet, machine_packet, app_packet, ad_packet]
 
