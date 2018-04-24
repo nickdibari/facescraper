@@ -43,6 +43,7 @@ class SecurityParser(BaseParser):
     FIELD_NAME_INDEX = {
         'IP Addresses': 6,
         'Recognized Machines': 3,
+        'Allowed Apps': 1,
     }
 
     SECURITY_FILE = 'security.htm'
@@ -98,17 +99,43 @@ class SecurityParser(BaseParser):
             recognized_machines_html = soup.find_all('ul')[section_index]
 
             for record in recognized_machines_html.find_all('p'):
-                record_data = {}
+                record_map = {}
                 # The content of the recongized machine section is one
                 # <p> for each machine with <br>'s in between. This method
                 # will create a generator of strings from the tag and create a
                 # map of fieldnames for each field in the record
                 for field in record.strings:
                     fieldname, content = field.split(':', 1)
-                    record_data[fieldname] = content
-                    machine_list.append(record_data)
+                    record_map[fieldname] = content
+                    machine_list.append(record_map)
 
         return machine_list
+
+    def _parse_allowed_applications(self):
+        """
+        Parse the installed applications section to retrieve a list of
+        applications that the user has installed in some fashion
+        Note that since this section is not in the HTML file of the other
+        security information the filename needs to be built manually
+        :@return app_data: (dict) Map of applications assosciated with user
+        """
+        app_list = []
+        print('Starting parse of allowed applications')
+
+        app_filename = '{}/{}/apps.htm'.format(self.BASE_DIR, self.HTML_DIR)
+        with open(app_filename) as html_file:
+            soup = BeautifulSoup(html_file, 'html.parser')
+            section_index = self.FIELD_NAME_INDEX['Allowed Apps']
+            app_html = soup.find_all('ul')[section_index]
+
+            for idx, app in enumerate(app_html.find_all('li')):
+                app_map = {}
+                app_map['Index'] = idx
+                app_map['App Name'] = app.getText().encode('ascii', 'ignore')
+
+                app_list.append(app_map)
+
+        return app_list
 
     def run(self):
         print('Starting parse of security data')
@@ -133,6 +160,15 @@ class SecurityParser(BaseParser):
             ]
         }
 
-        data = [ip_packet, machine_packet]
+        app_data = self._parse_allowed_applications()
+
+        app_packet = {
+            'section': self.section,
+            'subsection': 'allowed_apps',
+            'data': app_data,
+            'fieldnames': ['Index', 'App Name']
+        }
+
+        data = [ip_packet, machine_packet, app_packet]
 
         return data
